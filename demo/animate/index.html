@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>WiSP - MV-WSA live KV/Expert split</title>
+<style>
+  :root{
+    --bg:#0b0f17; --ink:#e6edf6; --dim:#7c8aa3;
+    --exp:#4c8dff; --exp2:#7db1ff; --kv:#27c2a0; --kv2:#5ce0c4;
+    --used:#0f9d7c; --gold:#ffd166; --line:#22304a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1300px 900px at 50% -10%, #14203a 0%, var(--bg) 55%);
+    color:var(--ink); font:16px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    display:flex; align-items:center; justify-content:center; min-height:100%;
+  }
+  .stage{width:900px; max-width:96vw; padding:26px 32px 22px;
+    background:linear-gradient(180deg,#0e1422,#0b0f17);
+    border:1px solid var(--line); border-radius:20px;
+    box-shadow:0 30px 90px rgba(0,0,0,.55);}
+  .head{display:flex; align-items:baseline; gap:12px; margin-bottom:2px}
+  .head h1{font-size:22px; margin:0; letter-spacing:.2px}
+  .head .tag{color:var(--dim); font-size:14px}
+  .sub{color:var(--dim); font-size:13.5px; margin:0 0 18px}
+  .sub b{color:var(--gold); font-weight:600}
+
+  /* ---- TOP: schematic ---- */
+  .top{padding-bottom:20px; border-bottom:1px solid var(--line)}
+  .lbl{display:flex; justify-content:space-between; font-size:13px; color:var(--dim); margin:2px 2px 8px}
+  .lbl b{color:var(--gold)}
+  .bar{position:relative; height:84px; border-radius:13px; overflow:hidden;
+    border:1px solid var(--line); background:#0a0e16; display:flex}
+  .seg{position:relative; height:100%; overflow:hidden}
+  .seg.exp{background:linear-gradient(180deg,var(--exp),#2f6bd6)}
+  .seg.kv{background:linear-gradient(180deg,#13312c,#0e2722); border-left:2px solid #0a0e16}
+  .seg .name{position:absolute; left:14px; top:11px; font-size:14px; font-weight:600; color:#eaf1ff; text-shadow:0 1px 2px rgba(0,0,0,.4)}
+  .seg.kv .name{color:#bdeee0}
+  .seg .val{position:absolute; left:14px; bottom:11px; font-size:13px; color:#dbe7ff; opacity:.92}
+  .seg.kv .val{color:#a9e7d8}
+  .kvused{position:absolute; left:0; top:0; height:100%;
+    background:linear-gradient(180deg,var(--kv),var(--used)); opacity:.95;
+    box-shadow:inset -8px 0 16px rgba(0,0,0,.25)}
+  .kvused .u{position:absolute; right:8px; bottom:11px; font-size:12px; color:#04130f; font-weight:700; white-space:nowrap}
+  .idleTag{position:absolute; top:12px; right:12px; font-size:12px; font-weight:700; color:var(--gold);
+    background:rgba(255,209,102,.12); border:1px solid rgba(255,209,102,.4); border-radius:7px; padding:2px 8px; opacity:0; transition:opacity .5s}
+  .boundary{position:absolute; top:-3px; bottom:-3px; width:2.5px; background:var(--gold);
+    box-shadow:0 0 16px var(--gold); z-index:5}
+  .scan{position:absolute; top:0; bottom:0; width:150px; pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(255,209,102,.32),transparent); z-index:6; opacity:0}
+
+  .slots{display:flex; gap:7px; flex-wrap:wrap; margin:18px 2px 4px; align-items:center}
+  .slot{width:17px; height:17px; border-radius:5px; background:#1b2740; border:1px solid #243453;
+    transition:background .35s, box-shadow .35s, transform .35s}
+  .slot.on{background:linear-gradient(180deg,var(--exp2),var(--exp)); border-color:#6aa3ff; box-shadow:0 0 9px rgba(76,141,255,.6)}
+  .slot.new{background:linear-gradient(180deg,var(--gold),#f4b740); border-color:#ffe08a; box-shadow:0 0 13px rgba(255,209,102,.9); transform:translateY(-2px)}
+  .slots-cap{font-size:13px; color:var(--dim); margin-left:10px}
+  .slots-cap b{color:var(--exp2)}
+
+  .race{margin-top:20px; display:grid; grid-template-columns:64px 1fr 64px; gap:9px 12px; align-items:center}
+  .race .race-h{grid-column:1 / -1; font-size:12px; color:var(--dim); margin-bottom:0}
+  .race .rt{font-size:13px; color:var(--dim); text-align:right} .race .rt b{color:var(--ink)}
+  .track{position:relative; height:20px; background:#0a0e16; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+  .fill{position:absolute; left:0; top:0; height:100%; border-radius:8px 0 0 8px; width:0}
+  .fill.s{background:linear-gradient(90deg,#5b6b85,#8593ad)}
+  .fill.d{background:linear-gradient(90deg,#2f6bd6,#4c8dff)}
+  .time{font-variant-numeric:tabular-nums; font-size:13px; color:var(--ink)}
+
+  /* ---- BOTTOM: explanation ---- */
+  .bottom{position:relative; min-height:206px; padding-top:18px}
+  .stepper{display:flex; gap:9px; margin-bottom:16px}
+  .dot{width:46px; height:5px; border-radius:3px; background:#243453; transition:background .35s}
+  .dot.on{background:var(--gold)}
+  .card{position:absolute; left:0; right:0; top:42px; opacity:0; transform:translateY(12px);
+    transition:opacity .6s ease, transform .6s ease; pointer-events:none}
+  .card.active{opacity:1; transform:none}
+  .card .kicker{font-size:13px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--gold)}
+  .card h2{font-size:28px; margin:8px 0 14px; line-height:1.2}
+  .card .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px 28px}
+  .card .row{position:relative; padding:9px 0 9px 28px; font-size:15.5px; color:#d6e0f0; border-top:1px solid #182236}
+  .card .row:before{content:""; position:absolute; left:4px; top:15px; width:10px; height:10px; border-radius:3px; background:var(--dim)}
+  .card .row.exp:before{background:var(--exp2)}
+  .card .row.kv:before{background:var(--kv2)}
+  .card .row.win:before{background:var(--gold)}
+  .card .row.full{grid-column:1 / -1}
+  .card .row b{color:#fff}
+  .card .blue{color:var(--exp2); font-weight:600}
+  .card .green{color:var(--kv2); font-weight:600}
+  .card .gold{color:var(--gold); font-weight:600}
+
+  .foot{display:flex; justify-content:space-between; align-items:center; margin-top:14px;
+    border-top:1px solid var(--line); padding-top:12px; color:var(--dim); font-size:12.5px}
+  .foot .pills span{display:inline-block; margin-right:8px; padding:2px 10px; border-radius:999px;
+    background:#0f1726; border:1px solid var(--line); color:#9fb0c9}
+  .foot .pills b{color:var(--kv2)}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="head">
+      <h1>WiSP &middot; MV-WSA</h1>
+      <span class="tag">live KV &harr; Expert split, on one fixed GPU budget</span>
+    </div>
+    <p class="sub">Qwen3-30B-A3B &middot; iso-VRAM &middot; AgentInstruct (db) &middot; real 24 GiB RTX 3090 &middot; <b>same hardware, allocated right</b></p>
+
+    <!-- ===================== TOP: schematic ===================== -->
+    <div class="top">
+      <div class="lbl"><span>GPU memory budget (iso-VRAM &mdash; fixed total)</span><span id="phaseTag"></span></div>
+      <div class="bar" id="bar">
+        <div class="seg exp" id="segExp">
+          <div class="name">Resident experts</div>
+          <div class="val" id="expVal"></div>
+        </div>
+        <div class="seg kv" id="segKv">
+          <div class="name">KV cache pool</div>
+          <div class="val" id="kvVal"></div>
+          <div class="kvused" id="kvUsed"><span class="u" id="kvUsedTxt"></span></div>
+          <div class="idleTag" id="idleTag">idle</div>
+        </div>
+        <div class="boundary" id="bnd"></div>
+        <div class="scan" id="scan"></div>
+      </div>
+
+      <div class="slots"><div id="slots" style="display:flex;gap:7px;flex-wrap:wrap"></div>
+        <span class="slots-cap">cap = <b id="capTxt">36</b> experts / layer</span></div>
+
+      <div class="race">
+        <div class="race-h">end-to-end wall time (36-turn agent session)</div>
+        <div class="rt">Static<br><b>offline</b></div>
+        <div class="track"><div class="fill s" id="fillS"></div></div>
+        <div class="time"><span id="timeS">0</span>s</div>
+        <div class="rt">Live<br><b>MV-WSA</b></div>
+        <div class="track"><div class="fill d" id="fillD"></div></div>
+        <div class="time"><span id="timeD">0</span>s</div>
+      </div>
+    </div>
+
+    <!-- ===================== BOTTOM: explanation ===================== -->
+    <div class="bottom">
+      <div class="stepper" id="stepper"></div>
+
+      <div class="card" data-i="0">
+        <div class="kicker">Step 1 / 5 &middot; the setup</div>
+        <h2>One budget, two hungry tenants</h2>
+        <div class="grid">
+          <div class="row exp"><span class="blue">Resident experts</span> &mdash; MoE weights kept on-GPU so tokens never stall paging them from CPU.</div>
+          <div class="row kv"><span class="green">KV cache pool</span> &mdash; attention state for the live, growing conversation.</div>
+          <div class="row full">Give one side more, the other gets less. <b>What is the right split?</b></div>
+        </div>
+      </div>
+
+      <div class="card" data-i="1">
+        <div class="kicker">Step 2 / 5 &middot; the problem</div>
+        <h2>A static split wastes the budget</h2>
+        <div class="grid">
+          <div class="row kv">KV pool sized once, offline, for the worst case &rarr; <span class="green">~56% sits idle</span> here.</div>
+          <div class="row exp">Experts capped at <span class="blue">36</span> &rarr; the rest page from CPU every step.</div>
+          <div class="row full">Idle KV bytes <b>cannot</b> help the experts that are actually starving.</div>
+        </div>
+      </div>
+
+      <div class="card" data-i="2">
+        <div class="kicker">Step 3 / 5 &middot; observe</div>
+        <h2>MV-WSA measures the real demand</h2>
+        <div class="grid">
+          <div class="row kv">Peak KV working set: <span class="green">~44% of the allocated pool</span>.</div>
+          <div class="row exp">Expert miss rate high &rarr; bytes are <span class="blue">worth more</span> as residency.</div>
+          <div class="row full">This agent trace simply <b>does not need</b> a large KV pool.</div>
+        </div>
+      </div>
+
+      <div class="card" data-i="3">
+        <div class="kicker">Step 4 / 5 &middot; the move</div>
+        <h2>Reclaim idle KV &rarr; resident experts</h2>
+        <div class="grid">
+          <div class="row kv">Shrink KV pool <span class="green">2.79 &rarr; 1.53 GiB</span> (still above the admission floor).</div>
+          <div class="row exp">Grow residency cap <span class="blue">32 &rarr; 35</span> experts.</div>
+          <div class="row win full"><b>0 preemptions</b>, output stays <b>byte-identical</b> &mdash; equimarginal rule, applied live.</div>
+        </div>
+      </div>
+
+      <div class="card" data-i="4">
+        <div class="kicker">Step 5 / 5 &middot; the win</div>
+        <h2>Same budget. Just split right.</h2>
+        <div class="grid">
+          <div class="row exp">TTFT <span class="blue">95 &rarr; 75 s</span> (1.27&times; faster).</div>
+          <div class="row kv">decode <span class="green">3.02 &rarr; 3.36 tok/s</span>.</div>
+          <div class="row win full">end-to-end <span class="gold">1355 &rarr; 1138 s &mdash; 1.19&times; faster</span>, same hardware.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="pills">
+        <span><b>iso-VRAM</b> only the split differs</span>
+        <span><b>0</b> preemptions</span>
+        <span>output <b>byte-identical</b></span>
+      </div>
+      <div>MV-WSA finds &amp; maintains the optimum online &mdash; automatically.</div>
+    </div>
+  </div>
+
+<script>
+// ---- real run data (results/dyn/m5_*.json) -------------------------------
+const BUDGET = 18.84;            // GiB, fixed iso-VRAM region (experts+KV)
+const EBPC   = 0.4219;           // GiB per resident-expert cap unit
+const KV_USED_GIB = 1.23;        // actual KV working set (~44% of the 2.79 GiB pool)
+const S = {cap:32, kvGiB:2.79, e2e:1355};   // static / offline (db trace)
+const D = {cap:35, kvGiB:1.53, e2e:1138};   // live / dynamic (db trace)
+const MAXCAP = 40, NCARD = 5;
+const DOT='\u00B7';
+// schematic bar proportions (NOT to byte-scale): keep the boundary near the
+// middle so the KV side stays readable. Real numbers live in the text labels.
+const FE_S = 0.50, FE_D = 0.58;   // experts fraction of the bar: static -> live
+
+// ---- timeline (seconds) -- each phase ~7s --------------------------------
+const T = {intro:7, staticHold:14, observe:21, resize:28, race:34, hold:35};
+const LOOP = T.hold;
+
+const $=id=>document.getElementById(id);
+const lerp=(a,b,t)=>a+(b-a)*t;
+const clamp=(t,a=0,b=1)=>Math.min(b,Math.max(a,t));
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+function seg(now,s,e){return clamp((now-s)/(e-s));}
+
+const slotsEl=$('slots');
+for(let i=0;i<MAXCAP;i++){const d=document.createElement('div');d.className='slot';slotsEl.appendChild(d);}
+const slotEls=[...slotsEl.children];
+const stepperEl=$('stepper');
+for(let i=0;i<NCARD;i++){const d=document.createElement('div');d.className='dot';stepperEl.appendChild(d);}
+const dotEls=[...stepperEl.children];
+const cardEls=[...document.querySelectorAll('.card')];
+let curCard=-1;
+function setCard(i){
+  if(i===curCard) return; curCard=i;
+  cardEls.forEach((c,k)=>c.classList.toggle('active',k===i));
+  dotEls.forEach((d,k)=>d.classList.toggle('on',k===i));
+}
+function setBar(feVis,cap,kvGiB,kvUsedGiB){
+  const expPct=feVis*100, kvPct=(1-feVis)*100;
+  $('segExp').style.width=expPct+'%'; $('segKv').style.width=kvPct+'%'; $('bnd').style.left=expPct+'%';
+  $('expVal').textContent=cap+' experts '+DOT+' '+(cap*EBPC).toFixed(1)+' GiB';
+  $('kvVal').textContent=kvGiB.toFixed(2)+' GiB pool';
+  const f=clamp(kvUsedGiB/kvGiB);
+  $('kvUsed').style.width=(f*100)+'%'; $('kvUsedTxt').textContent='used '+Math.round(f*100)+'%';
+}
+function setSlots(capFloat){
+  const lit=Math.round(capFloat);
+  slotEls.forEach((el,i)=>{ el.className='slot'+(i<lit?(i<S.cap?' on':' new'):''); });
+  $('capTxt').textContent=lit;
+}
+
+function frame(){
+  const now=(performance.now()/1000)%LOOP;
+  let cap_f=S.cap, phaseTag='';
+  $('idleTag').style.opacity=0; $('scan').style.opacity=0;
+
+  if(now<T.intro){
+    setCard(0); phaseTag='the budget'; setBar(FE_S,S.cap,S.kvGiB,KV_USED_GIB); raceReset();
+  } else if(now<T.staticHold){
+    setCard(1); phaseTag='static split';
+    const p=seg(now,T.intro,T.staticHold);
+    setBar(FE_S,S.cap,S.kvGiB,KV_USED_GIB*(0.92+0.08*Math.sin(p*Math.PI*8)));
+    $('idleTag').textContent='~56% idle'; $('idleTag').style.opacity=1;
+  } else if(now<T.observe){
+    setCard(2); phaseTag='controller observes';
+    const p=seg(now,T.staticHold,T.observe);
+    setBar(FE_S,S.cap,S.kvGiB,KV_USED_GIB);
+    $('scan').style.left=(lerp(-15,100,p))+'%'; $('scan').style.opacity=1;
+  } else if(now<T.resize){
+    setCard(3); phaseTag='re-solving the split';
+    const p=ease(seg(now,T.observe,T.resize));
+    cap_f=lerp(S.cap,D.cap,p);
+    setBar(lerp(FE_S,FE_D,p), cap_f, lerp(S.kvGiB,D.kvGiB,p), KV_USED_GIB);
+  } else if(now<T.race){
+    setCard(4); phaseTag='result';
+    setBar(FE_D,D.cap,D.kvGiB,KV_USED_GIB); cap_f=D.cap;
+    const p=seg(now,T.resize,T.race);
+    $('fillS').style.width=(p*100)+'%'; $('fillD').style.width=(clamp(p*S.e2e/D.e2e)*100)+'%';
+    $('timeS').textContent=Math.round(S.e2e*p); $('timeD').textContent=Math.round(D.e2e*clamp(p*S.e2e/D.e2e));
+  } else {
+    setCard(4); phaseTag='result';
+    setBar(FE_D,D.cap,D.kvGiB,KV_USED_GIB); cap_f=D.cap;
+    $('fillS').style.width='100%'; $('fillD').style.width='100%';
+    $('timeS').textContent=S.e2e; $('timeD').textContent=D.e2e;
+  }
+  setSlots(cap_f); $('phaseTag').textContent=phaseTag;
+  requestAnimationFrame(frame);
+}
+function raceReset(){ $('fillS').style.width='0%'; $('fillD').style.width='0%'; $('timeS').textContent='0'; $('timeD').textContent='0'; }
+frame();
+</script>
+</body>
+</html>

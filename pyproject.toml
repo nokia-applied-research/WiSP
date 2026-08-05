@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wisp-moe"
+version = "0.0.1"
+description = "WiSP — routing-aware expert paging for memory-constrained MoE serving (vLLM plug-in)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "WiSP authors" }]
+keywords = ["mixture-of-experts", "vllm", "inference", "offloading", "moe"]
+
+# Core deps are intentionally tiny so `pip install -e .` works on a
+# laptop with no GPU. The heavy runtime dep (vLLM + torch) is an extra
+# because it pins CUDA wheels; install it on the target box.
+dependencies = [
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+# The runtime that WiSP plugs into. Pin matches what the paper used.
+vllm = [
+    "vllm==0.11.2",
+]
+# Benchmark / reproduction helpers.
+bench = [
+    "matplotlib>=3.7",
+    "datasets>=2.14",
+]
+
+# vLLM discovers and calls this on engine startup; it installs the
+# MoE paging patch. Set WISP_PLUGIN_DISABLE=1 to leave it inert.
+[project.entry-points."vllm.general_plugins"]
+wisp = "wisp.integrations.vllm.plugin:register"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"

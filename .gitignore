@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Repro artifacts
+results/
+*.json
+!**/expected/*.json
+figures/*.png
+
+# Model / HF caches (never commit weights)
+*.safetensors
+*.bin
+hf_cache/
+.cache/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
