@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use WiSP, please cite the paper below (see preferred-citation)."
+title: "WiSP: Working-Set Paging for Memory-Constrained Mixture-of-Experts Serving"
+type: software
+authors:
+  - family-names: Zhang
+    given-names: Jiamu
+  - family-names: Wu
+    given-names: Liang
+  - family-names: Darbari
+    given-names: Mayank
+  - family-names: Hong
+    given-names: Liangjie
+license: Apache-2.0
+repository-code: "https://github.com/nokia-applied-research/WiSP"
+identifiers:
+  - type: doi
+    value: 10.48550/arXiv.2606.21868
+    description: "arXiv preprint"
+preferred-citation:
+  type: article
+  title: "WiSP: A Working-Set View of Mixture-of-Experts Serving on Extremely Low-Resource Hardware"
+  authors:
+    - family-names: Zhang
+      given-names: Jiamu
+    - family-names: Wu
+      given-names: Liang
+    - family-names: Darbari
+      given-names: Mayank
+    - family-names: Hong
+      given-names: Liangjie
+  year: 2026
+  journal: "arXiv preprint arXiv:2606.21868"
+  doi: 10.48550/arXiv.2606.21868
+  url: "https://arxiv.org/abs/2606.21868"

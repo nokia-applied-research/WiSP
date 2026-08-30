@@ -169,10 +169,14 @@ open-source sign-off before public release.
 ## Citation
 
 ```bibtex
-@misc{wisp,
-  title  = {WiSP: Working-Set Paging for Memory-Constrained Mixture-of-Experts Serving},
-  author = {WiSP authors},
-  year   = {2026},
-  note   = {arXiv preprint}
+@misc{zhang2026wisp,
+  title         = {WiSP: A Working-Set View of Mixture-of-Experts Serving on Extremely Low-Resource Hardware},
+  author        = {Jiamu Zhang and Liang Wu and Mayank Darbari and Liangjie Hong},
+  year          = {2026},
+  eprint        = {2606.21868},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  doi           = {10.48550/arXiv.2606.21868},
+  url           = {https://arxiv.org/abs/2606.21868}
 }
 ```
