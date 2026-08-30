@@ -46,13 +46,15 @@ _FP8_LAYER_STATES: list["WispMoEStateFP8"] = []
 
 
 def _resolve_cap_experts(num_experts: int) -> int:
+    # Unset defaults to min(num_experts, 24), matching the documented
+    # default and the unquantized path; full residency is opt-in.
     raw = os.environ.get("WISP_CAP_EXPERTS")
     if raw is None:
-        return num_experts
+        return min(num_experts, 24)
     try:
         cap = int(raw)
     except ValueError:
-        return num_experts
+        return min(num_experts, 24)
     return max(8, min(cap, num_experts))
 
 

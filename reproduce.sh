@@ -42,8 +42,8 @@ run_isovram() {
   echo "=== [2/2] iso-VRAM Pareto sweep on this card ==="
   MODEL="$MODEL" bash scripts/m3_3090_isovram_sweep.sh "$OUTDIR/isovram"
   echo "--- plotting Figure 3 (iso-VRAM) ---"
-  python scripts/m3_fig1_plot.py "$OUTDIR/isovram" || \
-      echo "[note] plot step skipped (matplotlib missing or no rows)"
+  python scripts/m3_fig1_plot.py --in-dir "$OUTDIR/isovram" --out "$OUTDIR/isovram/fig1" || \
+      echo "[warn] plot step failed; benchmark JSONs are still under $OUTDIR/isovram"
 }
 
 case "$STEP" in

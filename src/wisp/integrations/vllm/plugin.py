@@ -114,8 +114,11 @@ def register() -> None:
                 os.environ.get("WISP_DYN_HEADROOM", "0.15 (default)"),
             )
         except Exception as e:  # pragma: no cover
-            logger.warning(
-                "wisp.vllm.plugin: live serve controller not armed (%s); "
-                "static paging unaffected",
+            logger.error(
+                "wisp.vllm.plugin: WISP_DYNAMIC=1 was set but the live serve "
+                "controller could NOT be armed (%s). The engine will run with "
+                "a STATIC expert/KV split; static paging is unaffected. If "
+                "wisp.dynamic is missing, this build does not ship the "
+                "controller — see the Roadmap section of the README.",
                 e,
             )

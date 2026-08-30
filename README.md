@@ -163,8 +163,7 @@ Contributions and issue reports are welcome.
 
 ## License
 
-Apache-2.0. The copyright holder in `LICENSE` must be set per the project's
-open-source sign-off before public release.
+Apache-2.0.
 
 ## Citation
 

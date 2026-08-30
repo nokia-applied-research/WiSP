@@ -94,10 +94,12 @@ def _resolve_mode() -> str:
 
 def _resolve_cap_experts(num_experts: int) -> int:
     """paged-mode only. Read ``WISP_CAP_EXPERTS`` and clamp to
-    ``[top_k_estimated, num_experts]``."""
+    ``[top_k_estimated, num_experts]``. Unset defaults to
+    ``min(num_experts, 24)`` — the documented memory-saving default;
+    full residency must be asked for explicitly (WISP_MODE=resident)."""
     raw = os.environ.get("WISP_CAP_EXPERTS")
     if raw is None:
-        return num_experts
+        return min(num_experts, 24)
     try:
         cap = int(raw)
     except ValueError:

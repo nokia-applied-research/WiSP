@@ -41,6 +41,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--in-dir", required=True)
     ap.add_argument("--out", required=True, help="output path prefix (no ext)")
+    ap.add_argument("--title", default="iso-VRAM decode Pareto (eager)",
+                    help="plot title, e.g. 'Qwen3-30B-A3B (RTX 3090, eager)'")
     args = ap.parse_args()
 
     rows = load_rows(args.in_dir)
@@ -86,7 +88,7 @@ def main():
                     textcoords="offset points", xytext=(5, -12), fontsize=8, color="#d62728")
     ax.set_xlabel("Peak GPU memory (GiB)")
     ax.set_ylabel("Decode throughput (tok/s, per-stream)")
-    ax.set_title("Figure 1 — iso-VRAM decode Pareto, Qwen3-30B-A3B (H100 NVL, eager)")
+    ax.set_title(args.title)
     ax.grid(True, alpha=0.3)
     ax.legend(loc="upper left")
     fig.tight_layout()
