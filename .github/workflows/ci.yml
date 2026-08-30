@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+    branches: ["main", "mvwsa-controller"]
+  pull_request:
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Syntax / bytecode sanity for every shipped module and script.
+      - name: compileall
+        run: python -m compileall -q src scripts
+      # Fatal-only lint gate: syntax errors, undefined names, misused
+      # f-strings/comparisons. Style rules are intentionally not enforced.
+      - name: ruff (fatal-only)
+        run: |
+          pip install --quiet ruff
+          ruff check --select E9,F63,F7,F82 src scripts
+      - name: shell syntax
+        run: bash -n reproduce.sh scripts/*.sh
