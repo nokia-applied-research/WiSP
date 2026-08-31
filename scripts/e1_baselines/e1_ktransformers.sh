@@ -1,72 +1,96 @@
 #!/usr/bin/env bash
-# E1 baseline: KTransformers (GPU attention/dense + CPU expert kernels).
+# E1 baseline: KTransformers, current (2026) architecture = sglang-kt frontend
+# + kt-kernel CPU expert backend. GPU holds attention/dense + --kt-num-gpu-experts
+# hot experts; the rest run on CPU from GGUF (LLAMAFILE backend, works on any
+# AVX2+ CPU; AMX backends need Sapphire Rapids+, which rented Ice Lake pods lack).
 #
-# KTransformers' CLI and injection-config surface has churned across releases,
-# so everything here is env-overridable and the script fails loudly with the
-# server log rather than guessing. First smoke day: pin KT_VERSION, confirm the
-# server command + model layout, then freeze them here for the paper.
+# --kt-num-gpu-experts is the VRAM lever — sweep it for iso-VRAM points.
+#
+# Smoke-day findings encoded here (2026-08-30): the PyPI `ktransformers` meta
+# package's old `ktransformers.server.main` entry point is gone; the supported
+# path is `pip install kt-kernel sglang-kt` and `python -m sglang.launch_server
+# --kt-*` per kt-kernel/README.md. Their README's Qwen3-30B-A3B example uses
+# --kt-num-gpu-experts 32 on a 24 GB card.
 #
 # Env knobs:
-#   KT_VENV       separate venv (their torch pin may fight vLLM's; default
-#                 /workspace/venv-kt, created on first run)
-#   KT_VERSION    pip version to pin (default 0.3.2 — CONFIRM on smoke day)
-#   KT_MODEL      HF id of the safetensors model (default Qwen/Qwen3-30B-A3B)
-#   KT_GGUF_REPO  GGUF repo for expert weights if the KT path needs one
-#                 (default Qwen/Qwen3-30B-A3B-GGUF, pattern KT_GGUF_PATTERN)
-#   KT_CMD        full server command template override; {port} substituted.
-#   PORT (8392)   OUTDIR (/workspace/e1)   THREADS (default nproc)
+#   KT_VENV (default /workspace/venv-kt)   — dedicated venv (own torch pins)
+#   KT_KERNEL_PIN / SGLANG_KT_PIN          — versions; empty = latest (freeze after smoke)
+#   KT_MODEL      (default Qwen/Qwen3-30B-A3B)      safetensors side
+#   KT_GGUF_REPO  (default Qwen/Qwen3-30B-A3B-GGUF) CPU expert side
+#   KT_GGUF_PATTERN (default Q8_0)
+#   KT_METHOD     (default LLAMAFILE)
+#   GPU_EXPERTS_SWEEP (default "32")        — sweep list for iso-VRAM points
+#   THREADS (default nproc)   PORT (8392)   OUTDIR (/workspace/e1)
+#   KT_MEM_FRAC (default 0.85)
 set -uo pipefail
 V=${V:-/workspace/venv/bin}
 KT_VENV=${KT_VENV:-/workspace/venv-kt}
-KT_VERSION=${KT_VERSION:-0.3.2}
+KT_KERNEL_PIN=${KT_KERNEL_PIN:-}
+SGLANG_KT_PIN=${SGLANG_KT_PIN:-}
 KT_MODEL=${KT_MODEL:-Qwen/Qwen3-30B-A3B}
 KT_GGUF_REPO=${KT_GGUF_REPO:-Qwen/Qwen3-30B-A3B-GGUF}
 KT_GGUF_PATTERN=${KT_GGUF_PATTERN:-Q8_0}
+KT_METHOD=${KT_METHOD:-LLAMAFILE}
+GPU_EXPERTS_SWEEP=${GPU_EXPERTS_SWEEP:-"32"}
+THREADS=${THREADS:-$(nproc)}
 PORT=${PORT:-8392}
 OUTDIR=${OUTDIR:-/workspace/e1}
-THREADS=${THREADS:-$(nproc)}
+KT_MEM_FRAC=${KT_MEM_FRAC:-0.85}
 export HF_HOME=${HF_HOME:-/workspace/hf}
 mkdir -p "$OUTDIR"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 # --- env (once) -----------------------------------------------------------
-if [ ! -x "$KT_VENV/bin/python" ]; then
+if [ ! -x "$KT_VENV/bin/python" ] || ! "$KT_VENV/bin/python" -c "import sglang" 2>/dev/null; then
+  rm -rf "$KT_VENV"
   python3 -m venv "$KT_VENV"
   "$KT_VENV/bin/pip" install -q --upgrade pip
-  "$KT_VENV/bin/pip" install -q "ktransformers==$KT_VERSION" \
-    || { echo "E1-KT-INSTALL-FAIL (try a different KT_VERSION or their prebuilt wheel index)"; exit 1; }
+  "$KT_VENV/bin/pip" install -q "kt-kernel${KT_KERNEL_PIN:+==$KT_KERNEL_PIN}" \
+                              "sglang-kt${SGLANG_KT_PIN:+==$SGLANG_KT_PIN}" \
+    || { echo "E1-KT-INSTALL-FAIL"; exit 1; }
+  echo "[e1] installed: $("$KT_VENV/bin/pip" list 2>/dev/null | grep -Ei 'kt-kernel|sglang')"
 fi
 
-# GGUF for the CPU expert path (KTransformers' usual layout for MoE).
+# GGUF dir for the CPU expert path (reuses the llama.cpp download if present).
 "$V/hf" download "$KT_GGUF_REPO" --include "*${KT_GGUF_PATTERN}*.gguf" >/dev/null 2>&1 || true
-KT_GGUF_DIR="$(dirname "$(find "$HF_HOME/hub" -path "*${KT_GGUF_REPO##*/}*" -name "*${KT_GGUF_PATTERN}*.gguf" | head -1)" 2>/dev/null)"
+GGUF_FILE="$(find "$HF_HOME/hub" -path "*${KT_GGUF_REPO##*/}*" -name "*${KT_GGUF_PATTERN}*.gguf" | sort | head -1)"
+[ -z "$GGUF_FILE" ] && { echo "E1-KT-NO-GGUF"; exit 1; }
+KT_GGUF_DIR="$(dirname "$GGUF_FILE")"
+echo "[e1] gguf dir: $KT_GGUF_DIR"
 
-# --- serve ----------------------------------------------------------------
-OUT="$OUTDIR/ktransformers.json"
-[ -s "$OUT" ] && { echo "[e1] skip ktransformers (exists)"; echo E1-KT-DONE; exit 0; }
-DEFAULT_CMD="$KT_VENV/bin/python -m ktransformers.server.main \
-  --model_path $KT_MODEL --gguf_path ${KT_GGUF_DIR:-MISSING} \
-  --port {port} --host 127.0.0.1 --cpu_infer $THREADS"
-CMD="${KT_CMD:-$DEFAULT_CMD}"
-CMD="${CMD//\{port\}/$PORT}"
-echo "[e1] kt cmd: $CMD"
-$CMD > "$OUTDIR/ktransformers.server.log" 2>&1 &
-SPID=$!
-ok=0
-for i in $(seq 1 240); do
-  curl -s -o /dev/null "127.0.0.1:$PORT/v1/models" && { ok=1; break; }
-  kill -0 "$SPID" 2>/dev/null || break
+# Safetensors side: make sure the HF snapshot exists locally.
+"$V/hf" download "$KT_MODEL" >/dev/null 2>&1 || true
+
+# --- sweep ----------------------------------------------------------------
+for NG in $GPU_EXPERTS_SWEEP; do
+  OUT="$OUTDIR/ktransformers_ge${NG}.json"
+  [ -s "$OUT" ] && { echo "[e1] skip gpu-experts=$NG (exists)"; continue; }
+  "$KT_VENV/bin/python" -m sglang.launch_server \
+      --host 127.0.0.1 --port "$PORT" \
+      --model "$KT_MODEL" --trust-remote-code \
+      --mem-fraction-static "$KT_MEM_FRAC" \
+      --kt-method "$KT_METHOD" \
+      --kt-weight-path "$KT_GGUF_DIR" \
+      --kt-cpuinfer "$THREADS" \
+      --kt-num-gpu-experts "$NG" \
+      > "$OUTDIR/ktransformers_ge${NG}.server.log" 2>&1 &
+  SPID=$!
+  ok=0
+  for i in $(seq 1 240); do
+    curl -s -o /dev/null "127.0.0.1:$PORT/v1/models" && { ok=1; break; }
+    kill -0 "$SPID" 2>/dev/null || break
+    sleep 5
+  done
+  if [ "$ok" != "1" ]; then
+    echo "E1-KT-SERVE-FAIL gpu-experts=$NG — tail of server log:"
+    tail -20 "$OUTDIR/ktransformers_ge${NG}.server.log"
+    kill "$SPID" 2>/dev/null; wait "$SPID" 2>/dev/null; continue
+  fi
+  "$V/python" "$HERE/e1_endpoint_bench.py" --url "http://127.0.0.1:$PORT" \
+      --model "$KT_MODEL" --backend ktransformers \
+      --extra-config "{\"kt_method\": \"$KT_METHOD\", \"gpu_experts\": $NG, \"cpu_threads\": $THREADS, \"gguf_pattern\": \"$KT_GGUF_PATTERN\"}" \
+      --out "$OUT" || echo "E1-KT-BENCH-FAIL gpu-experts=$NG"
+  kill "$SPID" 2>/dev/null; wait "$SPID" 2>/dev/null
   sleep 5
 done
-if [ "$ok" != "1" ]; then
-  echo "E1-KT-SERVE-FAIL — tail of server log:"
-  tail -20 "$OUTDIR/ktransformers.server.log"
-  kill "$SPID" 2>/dev/null
-  exit 1
-fi
-"$V/python" "$HERE/e1_endpoint_bench.py" --url "http://127.0.0.1:$PORT" \
-    --model "$KT_MODEL" --backend ktransformers \
-    --extra-config "{\"kt_version\": \"$KT_VERSION\", \"cpu_threads\": $THREADS, \"gguf_pattern\": \"$KT_GGUF_PATTERN\"}" \
-    --out "$OUT" || echo "E1-KT-BENCH-FAIL"
-kill "$SPID" 2>/dev/null; wait "$SPID" 2>/dev/null
 echo E1-KT-DONE
