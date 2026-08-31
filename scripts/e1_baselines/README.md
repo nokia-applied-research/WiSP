@@ -25,9 +25,32 @@ Per-engine launchers own install/model/serve/sweep:
   rerun with `--max-tokens 256` matching this driver, or re-derive from the
   same protocol for the paper table.
 
-## Status / smoke checklist (September)
+## Status after smoke day 1 (2026-08-30, RTX 3090 pod)
 
-Nothing here is smoke-tested yet. On the first pod day:
+- **llama.cpp: FULL PIPELINE PASS.** Build (CUDA), Q8_0 GGUF download, `llama-server`
+  at ngl=16, streamed bench, JSON row: 1.42 tok/s mean @ 11.2 GiB peak, TTFT p50 1.75 s.
+  Sweep the full NGL grid in the sprint.
+- **KTransformers: parked with findings** (five layers deep, each documented so the
+  sprint doesn't re-derive them):
+  1. PyPI has no `ktransformers` 0.3.x; versions jump 0.2.1 → 0.5.2 → … → 0.7.0.post3.
+  2. The 0.7 meta package has no `ktransformers.server.main`; the 2026 architecture is
+     **kt-kernel (CPU ops) + sglang-kt (forked SGLang)**, launched via
+     `python -m sglang.launch_server --kt-*` (this script now encodes that).
+  3. `sglang-kt` does NOT depend on `sgl-kernel`, but imports it unconditionally
+     (`ModuleNotFoundError: common_ops` when absent).
+  4. Installing PyPI `sgl-kernel` (0.3.21, 0.3.16, 0.3.9, 0.3.4, 0.2.9 all probed) fails
+     against the venv's torch 2.9.1 with
+     `undefined symbol: _ZNK3c106SymInt6sym_neERKS0_` — **torch ABI mismatch**, not a
+     missing SM86 variant (the sm100 dir naming is a red herring; the .so exists and
+     fails to load).
+  5. Next moves for the sprint: install sgl-kernel from kvcache-ai's own wheel index /
+     match torch to sgl-kernel's build matrix (their pip extra likely pins torch), or run
+     the baseline from their official Docker image instead of a venv.
+- **Ops note:** the pod image presets `HF_HOME=/workspace/.cache/huggingface`, which
+  silently duplicated 74 GB of model downloads next to `/workspace/hf`. Fixed on the pod
+  with `rm + ln -s`; keep the two paths unified on any new box.
+
+## Remaining smoke checklist
 1. `bash e1_llamacpp.sh` with `NGL_SWEEP="16"` and a small `--max-tokens`
    (edit driver call) → confirm build, GGUF pick (check multi-part shards),
    health endpoint, JSON row.
