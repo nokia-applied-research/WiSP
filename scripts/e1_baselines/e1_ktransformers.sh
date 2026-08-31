@@ -48,6 +48,9 @@ if [ ! -x "$KT_VENV/bin/python" ] || ! "$KT_VENV/bin/python" -c "import sglang" 
   "$KT_VENV/bin/pip" install -q "kt-kernel${KT_KERNEL_PIN:+==$KT_KERNEL_PIN}" \
                               "sglang-kt${SGLANG_KT_PIN:+==$SGLANG_KT_PIN}" \
     || { echo "E1-KT-INSTALL-FAIL"; exit 1; }
+  # sgl_kernel's compiled ops (per-SM wheels) are not always pulled in as a
+  # dependency; without them sglang aborts with "No module named common_ops".
+  "$KT_VENV/bin/pip" install -q --upgrade sgl-kernel || echo "[e1] warn: sgl-kernel install failed"
   echo "[e1] installed: $("$KT_VENV/bin/pip" list 2>/dev/null | grep -Ei 'kt-kernel|sglang')"
 fi
 
