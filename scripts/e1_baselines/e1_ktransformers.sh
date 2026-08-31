@@ -80,7 +80,7 @@ for NG in $GPU_EXPERTS_SWEEP; do
   SPID=$!
   ok=0
   for i in $(seq 1 240); do
-    curl -s -o /dev/null "127.0.0.1:$PORT/v1/models" && { ok=1; break; }
+    [ "$(curl -s -o /dev/null -w '%{http_code}' "127.0.0.1:$PORT/v1/models")" = "200" ] && { ok=1; break; }
     kill -0 "$SPID" 2>/dev/null || break
     sleep 5
   done
