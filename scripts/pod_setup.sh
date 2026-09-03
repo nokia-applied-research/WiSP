@@ -42,10 +42,21 @@ fi
   "$BASE/venv/bin/pip" install -q "vllm==$VLLM_PIN" hf_transfer pytest || { echo "SETUP-FAIL-VLLM"; exit 1; }
 
 if [ ! -d "$BASE/wisp/.git" ]; then
-  git clone -q "$REPO_URL" "$BASE/wisp"
+  GIT_TERMINAL_PROMPT=0 git clone -q "$REPO_URL" "$BASE/wisp" 2>/dev/null || true
 fi
-git -C "$BASE/wisp" fetch -q origin && git -C "$BASE/wisp" checkout -q "$BRANCH" \
-  && git -C "$BASE/wisp" reset -q --hard "origin/$BRANCH"
+if [ -d "$BASE/wisp/.git" ]; then
+  GIT_TERMINAL_PROMPT=0 git -C "$BASE/wisp" fetch -q origin && git -C "$BASE/wisp" checkout -q "$BRANCH" \
+    && git -C "$BASE/wisp" reset -q --hard "origin/$BRANCH"
+else
+  # Some datacenters proxy-break git smart-HTTP while plain HTTPS works
+  # (seen on RunPod eu-cz: "could not read Username" on a public repo).
+  # Fall back to the codeload tarball; no .git, but experiments don't care.
+  echo "[setup] git clone failed; falling back to tarball of $BRANCH"
+  TARBALL="${REPO_URL%.git}/tarball/$BRANCH"
+  rm -rf "$BASE/wisp" && mkdir -p "$BASE/wisp"
+  curl -sL "$TARBALL" | tar -xz -C "$BASE/wisp" --strip-components=1 \
+    || { echo "SETUP-FAIL-CLONE"; exit 1; }
+fi
 "$BASE/venv/bin/pip" install -q -e "$BASE/wisp"
 "$BASE/venv/bin/python" -c "import wisp, vllm; print('IMPORT-OK', vllm.__version__)" || { echo "SETUP-FAIL-IMPORT"; exit 1; }
 
