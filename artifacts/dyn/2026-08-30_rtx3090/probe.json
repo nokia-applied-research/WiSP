@@ -1,0 +1,72 @@
+{
+  "schema_version": "m3_anvil_bandwidth_probe.v1",
+  "device": "cuda:0",
+  "results": [
+    {
+      "nbytes": 67108864,
+      "nbytes_gib": 0.0625,
+      "iters": 10,
+      "device": "cuda:0",
+      "seconds_mean": 0.00257057873532176,
+      "seconds_p50": 0.002569306641817093,
+      "seconds_min": 0.0025687599554657936,
+      "seconds_max": 0.0025794608518481255,
+      "gbps_mean": 24.313626048456577,
+      "gbps_p50": 24.325628950378615,
+      "gbps_max": 24.330805946664203
+    },
+    {
+      "nbytes": 268435456,
+      "nbytes_gib": 0.25,
+      "iters": 10,
+      "device": "cuda:0",
+      "seconds_mean": 0.01022043013945222,
+      "seconds_p50": 0.010219486430287361,
+      "seconds_min": 0.010217582806944847,
+      "seconds_max": 0.010225627571344376,
+      "gbps_mean": 24.46081127245945,
+      "gbps_p50": 24.463068837587382,
+      "gbps_max": 24.467626514372466
+    },
+    {
+      "nbytes": 1073741824,
+      "nbytes_gib": 1.0,
+      "iters": 10,
+      "device": "cuda:0",
+      "seconds_mean": 0.04171013338491321,
+      "seconds_p50": 0.04170894483104348,
+      "seconds_min": 0.04169232398271561,
+      "seconds_max": 0.04173498414456844,
+      "gbps_mean": 23.97499122891292,
+      "gbps_p50": 23.975672552518944,
+      "gbps_max": 23.985230480665223
+    },
+    {
+      "nbytes": 4294967296,
+      "nbytes_gib": 4.0,
+      "iters": 10,
+      "device": "cuda:0",
+      "seconds_mean": 0.17131552519276738,
+      "seconds_p50": 0.17131721880286932,
+      "seconds_min": 0.17127161379903555,
+      "seconds_max": 0.17136803548783064,
+      "gbps_mean": 23.348730905904535,
+      "gbps_p50": 23.34849953248556,
+      "gbps_max": 23.354716588899944
+    },
+    {
+      "nbytes": 17179869184,
+      "nbytes_gib": 16.0,
+      "iters": 10,
+      "device": "cuda:0",
+      "seconds_mean": 0.6831932738423347,
+      "seconds_p50": 0.6832137517631054,
+      "seconds_min": 0.6829267647117376,
+      "seconds_max": 0.6833730516955256,
+      "gbps_mean": 23.41943505929655,
+      "gbps_p50": 23.418732369549655,
+      "gbps_max": 23.42857364325672
+    }
+  ],
+  "anvil_profiles": {}
+}
